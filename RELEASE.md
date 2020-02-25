@@ -1,3 +1,3 @@
-# Release 0.1.0 - <font color="red">WIP</font>
+# Release `0.1.0` - `W.I.P`
 * Initial release of bar-cnn repository.
 
