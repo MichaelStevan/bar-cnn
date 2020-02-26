@@ -61,9 +61,10 @@ class ResNet:
                  regular_kernel_initializer='he_normal',
                  attention_kernel_initializer='zeros',
                  activation_function='relu',
-                 learning_rate=None,
-                 learning_rate_decay=None,
-                 optimizer_name=None,
+                 learning_rate=1e-4,
+                 learning_rate_decay='linear',
+                 clip_norm_value=0.001,
+                 optimizer_name='ADAM',
                  metrics=None,
                  num_of_classes=1000,
                  additional_callbacks=None,
@@ -86,7 +87,8 @@ class ResNet:
             attention_kernel_initializer (str, optional): TODO
             activation_function (str, optional): TODO
             learning_rate (float, optional): TODO
-            learning_rate_decay (float, optional): TODO
+            learning_rate_decay (str, optional): TODO
+            clip_norm_value (float, optional): TODO
             optimizer_name (str, optional): TODO
             metrics (list, optional): TODO
             num_of_classes (int, optional): TODO
@@ -108,6 +110,7 @@ class ResNet:
         self.activation_fn = activation_function
         self.lr = learning_rate
         self.lr_decay = learning_rate_decay
+        self.clip_norm = clip_norm_value
         self.optimizer_name = optimizer_name
         self.metrics = metrics
         self.classes = num_of_classes
@@ -155,12 +158,13 @@ class ResNet:
             # Print statement yielding information for the user
             print("\n\nMODEL IS PARTIALLY BUILT ...\n"
                   "PLEASE RUN THE FOLLOWING BUILD STEPS:...\n\t"
-                  "\t1. <model_instance>.define_loss_fns()\n"
-                  "\t1. <model_instance>.define_loss_wts()\n"
-                  "\t1. <model_instance>.define_optimizer()\n"
-                  "\t1. <model_instance>.define_output_path()\n"
-                  "\t1. <model_instance>.define_callbacks()\n"
-                  "\t1. <model_instance>.define_class_wts()\n"
+                  "1. <model_instance>.build_architecture()\t"
+                  "2. <model_instance>.define_loss_fns()\n\t"
+                  "3. <model_instance>.define_loss_wts()\n\t"
+                  "4. <model_instance>.define_optimizer()\n\t"
+                  "5. <model_instance>.define_output_path()\n\t"
+                  "6. <model_instance>.define_callbacks()\n\t"
+                  "7. <model_instance>.define_class_wts()"
                   "\n\nWHEN YOU ARE FINISHED ...\nYOU WILL BE ABLE TO MANUALLY RUN ...\n\t"
                   "<model_instance>.compile_model() AND <model_instance>.fit_model(tf_dataset)\n\n")
 
@@ -184,28 +188,21 @@ class ResNet:
 
     def define_optimizer(self):
         """ Defines the optimizer based on the passed string"""
-        # #################### SOMETHING LIKE THIS #################### #
-        # if self.optimizer_name == "ADAM":
-        #     return tf.keras.optimizers.Adam(lr=self.lr,
-        #                                     decay=(self.lr / self.epochs))
-        #
-        # elif self.optimizer_name == "NADAM":
-        #     print("\n\nNADAM OPTIMIZER NOT YET IMPLEMENTED\n\n... " \
-        #           "defaulting to regular ADAM.\n\n")
-        #     return tf.keras.optimizers.Adam(lr=self.lr,
-        #                                     decay=(self.lr / self.epochs))
-        #
-        # elif self.optimizer_name == "SGD":
-        #     return tf.keras.optimizers.SGD(lr=self.lr,
-        #                                    decay=(self.lr / self.epochs))
-        #
-        # else:
-        #     print("\n\n{} OPTIMIZER NOT YET IMPLEMENTED\n\n... " \
-        #           "defaulting to regular ADAM.\n\n".format(self.optimizer_name))
-        #     return tf.keras.optimizers.Adam(lr=self.lr,
-        #                                     decay=(self.lr / self.epochs))
-        # #################### ################### #################### #
-        raise NotImplementedError
+        if self.optimizer_name == "ADAM":
+            return tf.keras.optimizers.Adam(lr=self.lr, clipnorm=self.clip_norm)
+
+        elif self.optimizer_name == "NADAM":
+            print("\n\nNADAM OPTIMIZER NOT YET IMPLEMENTED\n\n... " 
+                  "defaulting to regular ADAM.\n\n")
+            return tf.keras.optimizers.Adam(lr=self.lr, clipnorm=self.clip_norm)
+
+        elif self.optimizer_name == "SGD":
+            return tf.keras.optimizers.SGD(lr=self.lr, clipnorm=self.clip_norm)
+
+        else:
+            print("\n\n{} OPTIMIZER NOT YET IMPLEMENTED\n\n... " \
+                  "defaulting to regular ADAM.\n\n".format(self.optimizer_name))
+            return tf.keras.optimizers.Adam(lr=self.lr, clipnorm=self.clip_norm)
 
     def define_output_path(self):
         """ Builds path to output directory"""
@@ -259,6 +256,14 @@ class ResNet:
         #                    metrics=self.metrics)
         # print("\n[INFO] compiling model complete... \n\n")
         # #################### ################### #################### #
+        loss = {
+                   'regression': custom.losses.smooth_l1(),
+                   'classification': custom.losses.focal(),
+                   'relationship': custom.losses.focal()
+               },
+        optimizer = self.optimizer
+
+    )
         raise NotImplementedError
 
     def fit_model(self, TF_DS):
@@ -347,7 +352,7 @@ class ResNet:
                                                  arguments={'ref_tensor': x})(attn_map)
 
         # Get the number of filters required
-        num_attn_filters = x.shape[3].value
+        num_attn_filters = x.shape[3]
 
         x = custom.layers.BatchNormalization(freeze=self.freeze_bn, axis=self.bn_axis,
                                              name=bn_name_base + '2b')(x)
@@ -425,7 +430,7 @@ class ResNet:
                                                  arguments={'ref_tensor': x})(attn_map)
 
         # Get the number of filters required
-        num_attn_filters = x.shape[3].value
+        num_attn_filters = x.shape[3]
 
         x = custom.layers.BatchNormalization(freeze=self.freeze_bn, axis=self.bn_axis,
                                              name=bn_name_base + '2b')(x)
