@@ -8,5 +8,6 @@ setup(
     license='OSI Approved :: Apache Software License',
     author='darienschettler',
     author_email='darien_schettler@hotmail.com',
-    description='Implementation of the 2018 Paper - Detecting Visual Relationships Using Box Attention'
+    description='Implementation of the 2018 Paper - Detecting Visual Relationships Using Box Attention',
+    install_requires=['tensorflow']
 )
