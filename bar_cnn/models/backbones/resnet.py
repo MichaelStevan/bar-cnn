@@ -26,6 +26,8 @@ Reference:
     - [Detecting Visual Relationships Using Box Attention](https://arxiv.org/pdf/1807.02136.pdf)
     - [Focal Loss for Dense Object Detection](https://arxiv.org/pdf/1708.02002.pdf)
 """
+# Builtin Imports
+import os
 
 # PyPi Library Imports
 import tensorflow as tf
@@ -65,7 +67,7 @@ class ResNet:
                  learning_rate_decay='linear',
                  clip_norm_value=0.001,
                  optimizer_name='ADAM',
-                 metrics=None,
+                 metrics=tf.keras.metrics.Accuracy,
                  num_of_classes=1000,
                  additional_callbacks=None,
                  epochs=5,
@@ -75,7 +77,8 @@ class ResNet:
                  padding_style="same",
                  freeze_batch_norm=True,
                  model_name="resnet-bar-cnn",
-                 auto_model_build=True):
+                 auto_model_build=True,
+                 output_dir="/tmp"):
         """ Constructor method for this class
 
         Instantiate the class with the given args.
@@ -101,6 +104,7 @@ class ResNet:
             freeze_batch_norm (bool, optional): TODO
             model_name (str, optional): TODO
             auto_model_build (bool, optional): TODO
+            output_dir (str, optional): TODO
         """
 
         self.image_shape = (image_size, image_size, 3)
@@ -123,6 +127,7 @@ class ResNet:
         self.freeze_bn = freeze_batch_norm
         self.model_name = model_name
         self.auto_build = auto_model_build
+        self.base_output_path = output_dir
 
         # To be defined later
         self.model_history = None
@@ -140,7 +145,7 @@ class ResNet:
             self.optimizer = self.define_optimizer()
             self.output_path = self.define_output_path()
             self.callbacks = self.define_callbacks()
-            self.class_weights = self.define_class_wts()
+            # self.class_weights = self.define_class_wts()
 
             # Print statement yielding information for the user
             print("\n\nMODEL IS NOW BUILT ...\nYOU CAN NOW MANUALLY RUN ...\n\t"
@@ -168,23 +173,22 @@ class ResNet:
                   "\n\nWHEN YOU ARE FINISHED ...\nYOU WILL BE ABLE TO MANUALLY RUN ...\n\t"
                   "<model_instance>.compile_model() AND <model_instance>.fit_model(tf_dataset)\n\n")
 
-    def define_loss_fns(self):
+    @staticmethod
+    def define_loss_fns():
         """ Defines the loss functions to be used"""
-        # #################### SOMETHING LIKE THIS #################### #
-        # return {"grapheme_root_output": self.loss_type,
-        #         "vowel_output": self.loss_type,
-        #         "consonant_output": self.loss_type}
-        # #################### ################### #################### #
-        raise NotImplementedError
+        return {'regression': custom.losses.smooth_l1(),
+                'classification': custom.losses.focal(),
+                'relationship': custom.losses.focal()
+                }
 
-    def define_loss_wts(self):
+    @staticmethod
+    def define_loss_wts():
         """ Defines the loss weightings if they are different"""
-        # #################### SOMETHING LIKE THIS #################### #
-        # return {"grapheme_root_output": 1.75,
-        #         "vowel_output": 1.0,
-        #         "consonant_output": 1.0}
-        # #################### ################### #################### #
-        raise NotImplementedError
+        return {
+            'regression': 1.0,
+            'classification': 1.0,
+            'relationship': 1.0
+        }
 
     def define_optimizer(self):
         """ Defines the optimizer based on the passed string"""
@@ -192,7 +196,7 @@ class ResNet:
             return tf.keras.optimizers.Adam(lr=self.lr, clipnorm=self.clip_norm)
 
         elif self.optimizer_name == "NADAM":
-            print("\n\nNADAM OPTIMIZER NOT YET IMPLEMENTED\n\n... " 
+            print("\n\nNADAM OPTIMIZER NOT YET IMPLEMENTED\n\n... "
                   "defaulting to regular ADAM.\n\n")
             return tf.keras.optimizers.Adam(lr=self.lr, clipnorm=self.clip_norm)
 
@@ -206,32 +210,30 @@ class ResNet:
 
     def define_output_path(self):
         """ Builds path to output directory"""
-        # #################### SOMETHING LIKE THIS #################### #
-        # output_path = os.path.join(self.base_output_dir, self.name)
-        #
-        # if not os.path.isdir(output_path):
-        #     print("\n\nOutput directory does not exist ...\n" \
-        #           "Creating directory\t{}\t...\n\n".format(output_path))
-        #     os.makedirs(output_path, exist_ok=True)
-        # return output_path
-        # #################### ################### #################### #
-        raise NotImplementedError
+        full_output_dir_path = os.path.join(self.base_output_path, self.model_name)
+
+        if not os.path.isdir(full_output_dir_path):
+            print("\n\nOutput directory does not exist ...\n"
+                  "Creating directory\t{}\t...\n\n".format(full_output_dir_path))
+            os.makedirs(full_output_dir_path, exist_ok=True)
+        return full_output_dir_path
 
     def define_callbacks(self):
         """ Builds complete callback list from required & additional callbacks"""
-        # #################### SOMETHING LIKE THIS #################### #
-        # # A list containing a single callback
-        # base_callback = [tf.keras.callbacks.ModelCheckpoint(filepath=os.path.join(self.output_path,
-        #                                                                           "weights.{epoch:02d}-{loss:.2f}.hdf5"),
-        #                                                     monitor='loss',
-        #                                                     save_weights_only=True,
-        #                                                     verbose=1)]
-        # # Either an empty list (if no additional callbacks) or a list of additional callbacks
-        # additional_callbacks = self.additional_callbacks
-        #
-        # return base_callback + additional_callbacks
-        # #################### ################### #################### #
-        raise NotImplementedError
+        # A list containing a single callback
+        base_callback = [
+            tf.keras.callbacks.ModelCheckpoint(
+                filepath=os.path.join(self.output_path,
+                                      "weights.{epoch:02d}-{loss:.2f}.hdf5"),
+                monitor='loss',
+                save_weights_only=True,
+                verbose=1)
+        ]
+        # Either an empty list (if no additional callbacks) or a list of additional callbacks
+        if self.additional_callbacks is not None:
+            return base_callback + self.additional_callbacks
+        else:
+            return base_callback
 
     def define_class_wts(self):
         """ Defines the class weightings if required"""
@@ -243,28 +245,18 @@ class ResNet:
         Args:
             abs_path_to_weights (str): TODO
         """
-        self.model.load_weights(abs_path_to_weights)
+        self.model.load_weights(abs_path_to_weights, by_name=True)
 
     def compile_model(self):
         """ Completes model compilation process using specified parameters """
 
-        # #################### SOMETHING LIKE THIS #################### #
-        # print("[INFO] compiling model ...\n")
-        # self.model.compile(optimizer=self.optimizer,
-        #                    loss=self.loss_fns,
-        #                    loss_weights=self.loss_wts,
-        #                    metrics=self.metrics)
-        # print("\n[INFO] compiling model complete... \n\n")
-        # #################### ################### #################### #
-        loss = {
-                   'regression': custom.losses.smooth_l1(),
-                   'classification': custom.losses.focal(),
-                   'relationship': custom.losses.focal()
-               },
-        optimizer = self.optimizer
+        print("[INFO] compiling model ...\n")
+        self.model.compile(optimizer=self.optimizer,
+                           loss=self.loss_fns,
+                           loss_weights=self.loss_wts,
+                           metrics=self.metrics)
+        print("\n[INFO] compiling model complete... \n\n")
 
-    )
-        raise NotImplementedError
 
     def fit_model(self, TF_DS):
         """ Launches model training process using specified parameters
