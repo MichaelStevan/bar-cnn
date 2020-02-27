@@ -1,0 +1,1 @@
+from bar_cnn.custom.initializers.prior_probability import PriorProbability

@@ -9,5 +9,5 @@ setup(
     author='darienschettler',
     author_email='darien_schettler@hotmail.com',
     description='Implementation of the 2018 Paper - Detecting Visual Relationships Using Box Attention',
-    install_requires=['tensorflow']
+    install_requires=['tensorflow', 'numpy']
 )
