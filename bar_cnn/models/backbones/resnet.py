@@ -27,6 +27,8 @@ Reference:
     - [Focal Loss for Dense Object Detection](https://arxiv.org/pdf/1708.02002.pdf)
 """
 
+import warnings
+
 # PyPi Library Imports
 import tensorflow as tf
 
@@ -61,7 +63,7 @@ class ResNetBoxAttnBackbone:
                  regular_kernel_initializer='he_normal',
                  attention_kernel_initializer='zeros',
                  activation_function='relu',
-                 last_pool="avg",
+                 last_pool=None,
                  utilize_bias=False,
                  padding_style="same",
                  freeze_batch_norm=True,
@@ -405,11 +407,14 @@ class ResNetBoxAttnBackbone:
         # Determine type of pooling to use for final pooling layer
         # and add this layer to the network
         if self.last_pool_style == 'avg':
-            x = tf.keras.layers.GlobalAveragePooling2D()(x)
+            # x = tf.keras.layers.GlobalAveragePooling2D()(x)
+            raise NotImplementedError("This needs to be implemented still")
         elif self.last_pool_style == 'max':
-            x = tf.keras.layers.GlobalMaxPooling2D()(x)
+            # x = tf.keras.layers.GlobalMaxPooling2D()(x)
+            raise NotImplementedError("This needs to be implemented still")
         else:
-            raise NotImplementedError
+            pass
+
         self.stage_outputs.append(x)
         # ################################################################## #
         # ################################################################## #

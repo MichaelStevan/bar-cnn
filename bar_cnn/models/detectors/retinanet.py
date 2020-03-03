@@ -70,7 +70,6 @@ class RetinaNet:
 
     def __init__(self,
                  input_tensors,
-                 output_tensors,
                  backbone_layers,
                  pyramid_feature_size=256,
                  regression_feature_size=256,
@@ -97,7 +96,8 @@ class RetinaNet:
                  ckpt_monitoring_metric="loss",
                  save_weights_only=False,
                  additional_callbacks=None,
-                 model_name='RetinaNet-Box-Attention-Model'):
+                 base_model_name='RetinaNet-Box-Attention-Model',
+                 model_name='RetinaNet-Box-Attention-Model-With-Interpretable-Head'):
         """ Constructor method for this class
 
         Instantiate the class with the given args.
@@ -105,7 +105,6 @@ class RetinaNet:
 
         Args:
             input_tensors (List of Tensors): TODO
-            output_tensors (List of Tensors): TODO
             backbone_layers (List of Layers): TODO
             pyramid_feature_size (int, optional): TODO
             regression_feature_size (int, optional): TODO
@@ -126,11 +125,11 @@ class RetinaNet:
             ckpt_monitoring_metric (str, optional): Metric to use for determining ckpt callback points
             save_weights_only (bool, optional): Whether to save only the model weights and not state/arc.
             additional_callbacks (list of additional callbacks): TODO
+            base_model_name (str, optional): TODO
             model_name (str, optional): TODO
         """
 
         self.input_tensors = input_tensors
-        self.output_tensors = output_tensors
         self.backbone_layers = backbone_layers
         self.pyramid_feature_size = pyramid_feature_size
         self.regression_feature_size = regression_feature_size
@@ -158,6 +157,7 @@ class RetinaNet:
         self.ckpt_monitoring_metric = ckpt_monitoring_metric
         self.save_weights_only = save_weights_only
         self.additional_callbacks = additional_callbacks
+        self.base_model_name = base_model_name
         self.model_name = model_name
 
         # To be defined later
@@ -184,7 +184,6 @@ class RetinaNet:
 
         # Use functions to define more complicated attributes
         self.pyramid_features = self.create_pyramid_features()
-        self.pyramid_feature_outputs = [p.output for p in self.pyramid_features]
         self.pyramids = self.build_model_pyramid()
         self.anchors = self.build_anchors()
 
@@ -331,6 +330,7 @@ class RetinaNet:
 
         x = inputs
         for i in range(4):
+
             x = tf.keras.layers.Conv2D(filters=self.classification_feature_size,
                                        activation='relu',
                                        name='pyramid_classification_{}'.format(i),
@@ -559,7 +559,7 @@ class RetinaNet:
                                           ratios=self.anchor_parameters.ratios,
                                           scales=self.anchor_parameters.scales,
                                           name='anchors_{}'.format(i))(f)
-            for i, f in enumerate(self.pyramid_feature_outputs)
+            for i, f in enumerate(self.pyramid_features)
         ]
 
         return tf.keras.layers.Concatenate(axis=1, name='anchors')(anchors)
@@ -580,7 +580,9 @@ class RetinaNet:
             # self.assert_valid_retinanet_model(exterior_base_retinanet)
             base_model = exterior_base_retinanet
         else:
-            base_model = tf.keras.models.Model(inputs=self.input_tensors, outputs=self.pyramids, name=self.model_name)
+            base_model = tf.keras.models.Model(inputs=self.input_tensors,
+                                               outputs=self.pyramids,
+                                               name=self.base_model_name)
 
         if not self.add_interpretable_head:
             return base_model

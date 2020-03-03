@@ -79,18 +79,12 @@ class FilterDetections(tf.keras.layers.Layer):
                         the predicted label.
                 -   other[i] is shaped (max_detections, ...) and contains
                         the filtered other[i] data.
-
         """
         boxes = inputs[0]
         classification = inputs[1]
         relationship = inputs[2]
         other = inputs[3:]
-
-        # wrap nms with our parameters
-        self.filter_detections(boxes=boxes,
-                               classification=classification,
-                               relationship=relationship,
-                               other=other)
+        print(inputs)
 
         # call filter_detections on each batch
         outputs = tf.map_fn(
@@ -106,21 +100,19 @@ class FilterDetections(tf.keras.layers.Layer):
         return outputs
 
     def filter_detections(self,
-                          boxes,
-                          classification,
-                          relationship,
-                          other=None):
+                          args):
         """ Filter detections using the boxes and classification values.
 
         Args:
-            boxes (Tensor): Shape (num_boxes, 4) containing
-                the boxes in (x1, y1, x2, y2) format.
-            classification (Tensor): Shape (num_boxes, num_classes) containing
-                the classification scores.
-            relationship (Tensor): Shape (num_boxes, num_predicates) containing
-                the relationship scores.
-            other (List of Tensors, optional): Shape (num_boxes, ...) to filter
-                along with the boxes and classification scores.
+            args (List of Tensors):
+                - boxes (Tensor): Shape (num_boxes, 4) containing
+                    the boxes in (x1, y1, x2, y2) format.
+                - classification (Tensor): Shape (num_boxes, num_classes) containing
+                    the classification scores.
+                - relationship (Tensor): Shape (num_boxes, num_predicates) containing
+                    the relationship scores.
+                - other (List of Tensors, optional): Shape (num_boxes, ...) to filter
+                    along with the boxes and classification scores.
 
         Returns:
             A list of [boxes, scores, labels, other[0], other[1], ...].
@@ -131,14 +123,23 @@ class FilterDetections(tf.keras.layers.Layer):
             In case there are less than max_detections detections, the tensors are padded with -1's.
         """
 
+        boxes = args[0]
+        classification = args[1]
+        relationship = args[2]
+        other = args[3]
+
+        if other is None:
+            other = []
+
         if self.class_specific_filter:
             all_indices = []
 
             # perform per class filtering
+            print(classification.shape)
             for c in range(int(classification.shape[1])):
                 scores = classification[:, c]
                 labels = c * tf.ones((tf.shape(scores)[0],), dtype='int64')
-                all_indices.append(self.sub_filter_fn(scores, labels))
+                all_indices.append(self.sub_filter_fn(boxes, scores, labels))
 
             # concatenate indices to single tensor
             indices = tf.keras.backend.concatenate(tensors=all_indices, axis=0)
@@ -146,7 +147,7 @@ class FilterDetections(tf.keras.layers.Layer):
         else:
             scores = tf.keras.backend.max(classification, axis=1)
             labels = tf.keras.backend.argmax(classification, axis=1)
-            indices = self.sub_filter_fn(scores, labels)
+            indices = self.sub_filter_fn(boxes, scores, labels)
 
         # select top k
         scores = tf.gather_nd(classification, indices)
@@ -195,11 +196,9 @@ class FilterDetections(tf.keras.layers.Layer):
 
         predicate_labels = tf.cast(predicate_labels, 'int32')
 
-        other_ = [
-            tf.pad(tensor=o,
-                   paddings=[[0, pad_size]] + [[0, 0] for _ in range(1, len(o.shape))],
-                   constant_values=-1)
-            for o in other_]
+        other_ = [tf.pad(tensor=o,
+                         paddings=[[0, pad_size]] + [[0, 0] for _ in range(1, len(o.shape))],
+                         constant_values=-1) for o in other_]
 
         # set shapes, since we know what they are
         boxes.set_shape([self.max_detections, 4])
@@ -215,12 +214,13 @@ class FilterDetections(tf.keras.layers.Layer):
 
         return [boxes, scores, labels, predicate_scores, predicate_labels] + other_
 
-    def sub_filter_fn(self, scores, labels):
+    def sub_filter_fn(self, boxes, scores, labels):
         """TODO: docstring
 
         Args:
-            scores (TODO) : TODO
-            labels (TODO) : TODO
+            boxes (TODO): TODO
+            scores (TODO): TODO
+            labels (TODO): TODO
 
         Returns:
             TODO
@@ -231,7 +231,7 @@ class FilterDetections(tf.keras.layers.Layer):
         indices = tf.where(tf.greater(scores, self.score_threshold))
 
         if self.nms:
-            filtered_boxes = tf.gather_nd(self.boxes, indices)
+            filtered_boxes = tf.gather_nd(boxes, indices)
             filtered_scores = tf.gather(scores, indices)[:, 0]
 
             # perform NMS
