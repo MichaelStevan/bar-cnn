@@ -5,11 +5,17 @@ import numpy as np
 # Local Imports
 from bar_cnn import utils
 
+
 class GenerateAnchors(tf.keras.layers.Layer):
     """ tf.keras layer for generating anchors for a given shape.
 
     Attributes:
-        tf.keras.layers.Layer: TODO
+        tf.keras.layers.Layer: Base layer class.
+            This is the class from which all layers inherit.
+                -   A layer is a class implementing common neural networks
+                    operations, such as convolution, batch norm, etc.
+                -   These operations require managing weights,
+                    losses, updates, and inter-layer connectivity.
     """
 
     def __init__(self, size, stride, ratios=None, scales=None, *args, **kwargs):
@@ -21,8 +27,8 @@ class GenerateAnchors(tf.keras.layers.Layer):
         Args:
             size (TODO)             : The base size of the anchors to generate.
             stride (TODO)           : The stride of the anchors to generate.
-            ratios (TODO, optional) : The ratios of the anchors to generate (defaults to AnchorParameters.default.ratios).
-            scales (TODO, optional) : The scales of the anchors to generate (defaults to AnchorParameters.default.scales).
+            ratios (TODO, optional) : The ratios of the anchors to generate
+            scales (TODO, optional) : The scales of the anchors to generate
 
         *args:
             TODO

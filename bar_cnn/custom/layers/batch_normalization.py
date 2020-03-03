@@ -23,7 +23,12 @@ class BatchNormalization(tf.keras.layers.BatchNormalization):
     Very similar to tf.keras.layers.BatchNormalization, with the additional option to freeze parameters.
 
     Attributes:
-        tf.keras.layers.BatchNormalization: tf.keras layer to normalize and scale inputs or activations.
+        tf.keras.layers.Layer: Base layer class.
+            This is the class from which all layers inherit.
+                -   A layer is a class implementing common neural networks
+                    operations, such as convolution, batch norm, etc.
+                -   These operations require managing weights,
+                    losses, updates, and inter-layer connectivity.
 
     Traditional Definition:
         ```

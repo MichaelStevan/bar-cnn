@@ -1,12 +1,17 @@
 # Library imports
 import tensorflow as tf
 
+
 class UpsampleLike(tf.keras.layers.Layer):
-    """ Keras layer for upsampling a Tensor to be the same shape as another Tensor.
+    """ Keras layer for up-sampling a Tensor to be the same shape as another Tensor.
 
     Attributes:
-        keras.layers.Layer: TODO
-
+        tf.keras.layers.Layer: Base layer class.
+            This is the class from which all layers inherit.
+                -   A layer is a class implementing common neural networks
+                    operations, such as convolution, batch norm, etc.
+                -   These operations require managing weights,
+                    losses, updates, and inter-layer connectivity.
     """
 
     # TODO: Understanding

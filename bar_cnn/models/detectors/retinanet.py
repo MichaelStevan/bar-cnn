@@ -27,13 +27,13 @@ Reference:
     - [Focal Loss for Dense Object Detection](https://arxiv.org/pdf/1708.02002.pdf)
 """
 
-####
-#### ???
+# ###
+# ### ???
 # # invoke modifier if given
 #     if modifier:
 #         resnet = modifier(resnet)
-#### ???
-####
+# ### ???
+# ###
 
 # Builtin Imports
 import os
@@ -88,7 +88,15 @@ class RetinaNet:
                  nms=True,
                  anchor_params=None,
                  class_specific_filter=True,
-                 auto_build=True,
+                 add_interpretable_head=True,
+                 lr=0.002,
+                 clip_norm=0.001,
+                 metrics=None,
+                 optimizer_name="ADAM",
+                 base_output_path="/tmp",
+                 ckpt_monitoring_metric="loss",
+                 save_weights_only=False,
+                 additional_callbacks=None,
                  model_name='RetinaNet-Box-Attention-Model'):
         """ Constructor method for this class
 
@@ -106,10 +114,18 @@ class RetinaNet:
             num_predicates (int, optional): TODO
             num_anchors (int, optional): TODO
             sub_models (): TODO
-            nms (): TODO
+            nms (bool, optional): TODO
             anchor_params (): TODO
-            class_specific_filter (): TODO
-            auto_build (bool, optional): Whether or not the model should be built automatically
+            class_specific_filter (bool, optional): TODO
+            add_interpretable_head (bool, optional): TODO
+            lr (float, optional): TODO
+            clip_norm (float, optional): TODO
+            metrics (list of tf.metrics): TODO
+            optimizer_name (str, optional): Name of optimizer to utilize when training
+            base_output_path (str, optional): Absolute path to the output directory
+            ckpt_monitoring_metric (str, optional): Metric to use for determining ckpt callback points
+            save_weights_only (bool, optional): Whether to save only the model weights and not state/arc.
+            additional_callbacks (list of additional callbacks): TODO
             model_name (str, optional): TODO
         """
 
@@ -131,12 +147,25 @@ class RetinaNet:
         self.nms = nms
         self.anchor_params = anchor_params
         self.class_specific_filter = class_specific_filter
-        self.auto_build = auto_build
+        self.add_interpretable_head = add_interpretable_head
+
+        self.lr = lr
+        self.clip_norm = clip_norm
+        self.metrics = metrics
+        self.optimizer_name = optimizer_name.upper()
+
+        self.base_output_path = base_output_path
+        self.ckpt_monitoring_metric = ckpt_monitoring_metric
+        self.save_weights_only = save_weights_only
+        self.additional_callbacks = additional_callbacks
         self.model_name = model_name
 
         # To be defined later
-
         self.model_history = None
+        self.regression_out = None
+        self.classification_out = None
+        self.relationship_out = None
+        self.other_out = None
 
         # Instantiate the AnchorParameters class without passing any arguments
         # this will result in the default arguments being applied
@@ -153,46 +182,20 @@ class RetinaNet:
         else:
             self.sub_models = self.define_default_sub_models()
 
-        # Whether to run built in functions automatically
-        if self.auto_build:
-            # Use functions to define more complicated attributes
-            self.pyramid_features = self.create_pyramid_features()
-            self.pyramid_feature_outputs = [p.output for p in self.pyramid_features]
-            self.pyramids = self.build_model_pyramid()
+        # Use functions to define more complicated attributes
+        self.pyramid_features = self.create_pyramid_features()
+        self.pyramid_feature_outputs = [p.output for p in self.pyramid_features]
+        self.pyramids = self.build_model_pyramid()
+        self.anchors = self.build_anchors()
 
-            self.model = self.build_architecture()
-            self.loss_fns = self.define_loss_fns()
-            self.loss_wts = self.define_loss_wts()
-            self.optimizer = self.define_optimizer()
-            self.output_path = self.define_output_path()
-            self.callbacks = self.define_callbacks()
-            # self.class_weights = self.define_class_wts()
+        self.model = self.build_architecture()
 
-            # Print statement yielding information for the user
-            print("\n\nMODEL IS NOW BUILT ...\nYOU CAN NOW MANUALLY RUN ...\n\t"
-                  "<model_instance>.compile_model() AND <model_instance>.fit_model(tf_dataset)\n\n")
-
-        else:
-            self.model = None
-            self.loss_fns = None
-            self.loss_wts = None
-            self.optimizer = None
-            self.output_path = None
-            self.callbacks = None
-            self.class_weights = None
-
-            # Print statement yielding information for the user
-            print("\n\nMODEL IS PARTIALLY BUILT ...\n"
-                  "PLEASE RUN THE FOLLOWING BUILD STEPS:...\n\t"
-                  "1. <model_instance>.build_architecture()\t"
-                  "2. <model_instance>.define_loss_fns()\n\t"
-                  "3. <model_instance>.define_loss_wts()\n\t"
-                  "4. <model_instance>.define_optimizer()\n\t"
-                  "5. <model_instance>.define_output_path()\n\t"
-                  "6. <model_instance>.define_callbacks()\n\t"
-                  "7. <model_instance>.define_class_wts()"
-                  "\n\nWHEN YOU ARE FINISHED ...\nYOU WILL BE ABLE TO MANUALLY RUN ...\n\t"
-                  "<model_instance>.compile_model() AND <model_instance>.fit_model(tf_dataset)\n\n")
+        self.loss_fns = self.define_loss_fns()
+        self.loss_wts = self.define_loss_wts()
+        self.optimizer = self.define_optimizer()
+        self.output_path = self.define_output_path()
+        self.callbacks = self.define_callbacks()
+        # self.class_weights = self.define_class_wts()
 
     @staticmethod
     def define_loss_fns():
@@ -225,7 +228,7 @@ class RetinaNet:
             return tf.keras.optimizers.SGD(lr=self.lr, clipnorm=self.clip_norm)
 
         else:
-            print("\n\n{} OPTIMIZER NOT YET IMPLEMENTED\n\n... " \
+            print("\n\n{} OPTIMIZER NOT YET IMPLEMENTED\n\n... "
                   "defaulting to regular ADAM.\n\n".format(self.optimizer_name))
             return tf.keras.optimizers.Adam(lr=self.lr, clipnorm=self.clip_norm)
 
@@ -233,12 +236,13 @@ class RetinaNet:
         """ Create a list of default sub_models used for object detection.
 
         The default sub_models are...
-            1. a regression submodel        (NORMAL RETINANET)
-            2. a classification submodel    (NORMAL RETINANET)
-            3. relationship submodel.       (BAR-CNN ADDITION)
+            1. a regression  sub-model        (NORMAL RETINANET)
+            2. a classification  sub-model    (NORMAL RETINANET)
+            3. relationship  sub-model.       (BAR-CNN ADDITION)
 
         Returns:
-            A list of tuples, where the first element is the name of the submodel and the second element is the submodel itself.
+            A list of tuples where the first element is the name of
+                the sub-model and the second element is the sub-model itself.
         """
 
         regression_tuple = ('regression', self.define_default_regression_model_head())
@@ -381,7 +385,7 @@ class RetinaNet:
                                        bias_initializer='zeros',
                                        **options)(x)
 
-        x = tf.keras.layers.Conv2D(filters=self.num_predicates*self.num_anchors,
+        x = tf.keras.layers.Conv2D(filters=self.num_predicates * self.num_anchors,
                                    bias_initializer=custom.initializers.PriorProbability(
                                        probability=self.relationship_prior_probability),
                                    name='pyramid_relationship',
@@ -418,8 +422,8 @@ class RetinaNet:
             tf.keras.callbacks.ModelCheckpoint(
                 filepath=os.path.join(self.output_path,
                                       "weights.{epoch:02d}-{loss:.2f}.hdf5"),
-                monitor='loss',
-                save_weights_only=True,
+                monitor=self.ckpt_monitoring_metric,
+                save_weights_only=self.save_weights_only,
                 verbose=1)
         ]
         # Either an empty list (if no additional callbacks) or a list of additional callbacks
@@ -432,13 +436,19 @@ class RetinaNet:
         """ Defines the class weightings if required"""
         raise NotImplementedError
 
-    def load_weights(self, abs_path_to_weights):
+    def load_weights(self, abs_path_to_weights, weights_only=False):
         """ Loads the weight file passed into the current model
 
         Args:
             abs_path_to_weights (str): TODO
+            weights_only (bool, optional): TODO
         """
-        self.model.load_weights(abs_path_to_weights, by_name=True)
+        if weights_only:
+            self.model.load_weights(abs_path_to_weights, by_name=True)
+        else:
+            self.model = tf.keras.models.load_model(filepath=abs_path_to_weights,
+                                                    custom_objects=None,
+                                                    compile=True)
 
     def compile_model(self):
         """ Completes model compilation process using specified parameters """
@@ -446,8 +456,12 @@ class RetinaNet:
         print("[INFO] compiling model ...\n")
         self.model.compile(optimizer=self.optimizer,
                            loss=self.loss_fns,
+                           metrics=self.metrics,
                            loss_weights=self.loss_wts,
-                           metrics=self.metrics)
+                           sample_weight_mode=None,
+                           weighted_metrics=None,
+                           target_tensors=None,
+                           distribute=None)
         print("\n[INFO] compiling model complete... \n\n")
 
     def fit_model(self, TF_DS):
@@ -534,7 +548,9 @@ class RetinaNet:
 
         Returns:
             A tensor containing the anchors for the FPN features.
-                The shape is: (batch_size, num_anchors, 4)
+                i.e. the concatenation of the inputs alongside the specified axis.
+                    - The shape is: (batch_size, num_anchors, 4)
+
         """
 
         anchors = [
@@ -548,127 +564,47 @@ class RetinaNet:
 
         return tf.keras.layers.Concatenate(axis=1, name='anchors')(anchors)
 
-    def build_architecture(self, version="resnet50"):
-        """Instantiates the ResNet50 architecture
-
-        Args:
-            version (str, optional): which style of resnet are using
+    def build_architecture(self, exterior_base_retinanet=None):
+        """Instantiates the RetinaNet architecture
 
         Returns:
             A tf.keras model object.
 
         Raises:
-            NotImplementedError: If passed version has not yet been implemented
+            ValueError: If passed  pre-made model is not appropriate
         """
 
         # Version checking - currently only ResNet50 is supported
-        if version == "resnet50":
-            pass
+        if exterior_base_retinanet is not None:
+            # TODO - Implement a check of the pre-made model
+            # self.assert_valid_retinanet_model(exterior_base_retinanet)
+            base_model = exterior_base_retinanet
         else:
-            raise NotImplementedError
+            base_model = tf.keras.models.Model(inputs=self.input_tensors, outputs=self.pyramids, name=self.model_name)
 
-        # Define inputs
-        img_input = tf.keras.layers.Input(shape=self.image_shape)
-        attn_map_input = tf.keras.layers.Input(shape=self.image_shape)
-
-        # ################################################################## #
-        #                     BUILD STAGE 1 (INPUT) BLOCK                    #
-        # ################################################################## #
-        x = tf.keras.layers.Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2),
-                                   padding=self.pad_style, use_bias=self.use_bias,
-                                   kernel_initializer=self.reg_kernel_init,
-                                   name='conv1')(img_input)
-
-        x = custom.layers.BatchNormalization(freeze=self.freeze_bn, axis=self.bn_axis,
-                                             name='bn_conv1')(x)
-        x = tf.keras.layers.Activation(self.activation_fn)(x)
-        x = tf.keras.layers.ZeroPadding2D(padding=(1, 1), name='pool1_pad')(x)
-        x = tf.keras.layers.MaxPooling2D(pool_size=(3, 3), strides=(2, 2))(x)
-        # ################################################################## #
-        # ################################################################## #
-        # ################################################################## #
-
-        # ################################################################## #
-        #                        BUILD STAGE 2 BLOCK                         #
-        # ################################################################## #
-        x = self.conv_block(input_tensor=x, kernel_size=3, filters=[64, 64, 256],
-                            stage=2, block='a', strides=(1, 1), attn_map=attn_map_input)
-        x = self.identity_block(input_tensor=x, kernel_size=3, filters=[64, 64, 256],
-                                stage=2, block='b', attn_map=attn_map_input)
-        x = self.identity_block(input_tensor=x, kernel_size=3, filters=[64, 64, 256],
-                                stage=2, block='c', attn_map=attn_map_input)
-        self.stage_outputs.append(x)
-        # ################################################################## #
-        # ################################################################## #
-        # ################################################################## #
-
-        # ################################################################## #
-        #                        BUILD STAGE 3 BLOCK                         #
-        # ################################################################## #
-        x = self.conv_block(input_tensor=x, kernel_size=3, filters=[128, 128, 512],
-                            stage=3, block='a', attn_map=attn_map_input)
-        x = self.identity_block(input_tensor=x, kernel_size=3, filters=[128, 128, 512],
-                                stage=3, block='b', attn_map=attn_map_input)
-        x = self.identity_block(input_tensor=x, kernel_size=3, filters=[128, 128, 512],
-                                stage=3, block='c', attn_map=attn_map_input)
-        x = self.identity_block(input_tensor=x, kernel_size=3, filters=[128, 128, 512],
-                                stage=3, block='d', attn_map=attn_map_input)
-        self.stage_outputs.append(x)
-        # ################################################################## #
-        # ################################################################## #
-        # ################################################################## #
-
-        # ################################################################## #
-        #                        BUILD STAGE 4 BLOCK                         #
-        # ################################################################## #
-        x = self.conv_block(input_tensor=x, kernel_size=3, filters=[256, 256, 1024],
-                            stage=4, block='a', attn_map=attn_map_input)
-        x = self.identity_block(input_tensor=x, kernel_size=3, filters=[256, 256, 1024],
-                                stage=4, block='b', attn_map=attn_map_input)
-        x = self.identity_block(input_tensor=x, kernel_size=3, filters=[256, 256, 1024],
-                                stage=4, block='c', attn_map=attn_map_input)
-        x = self.identity_block(input_tensor=x, kernel_size=3, filters=[256, 256, 1024],
-                                stage=4, block='d', attn_map=attn_map_input)
-        x = self.identity_block(input_tensor=x, kernel_size=3, filters=[256, 256, 1024],
-                                stage=4, block='e', attn_map=attn_map_input)
-        x = self.identity_block(input_tensor=x, kernel_size=3, filters=[256, 256, 1024],
-                                stage=4, block='f', attn_map=attn_map_input)
-        self.stage_outputs.append(x)
-        # ################################################################## #
-        # ################################################################## #
-        # ################################################################## #
-
-        # ################################################################## #
-        #                        BUILD STAGE 5 BLOCK                         #
-        # ################################################################## #
-        x = self.conv_block(input_tensor=x, kernel_size=3, filters=[512, 512, 2048],
-                            stage=5, block='a', attn_map=attn_map_input)
-        x = self.identity_block(input_tensor=x, kernel_size=3, filters=[512, 512, 2048],
-                                stage=5, block='b', attn_map=attn_map_input)
-        x = self.identity_block(input_tensor=x, kernel_size=3, filters=[512, 512, 2048],
-                                stage=5, block='c', attn_map=attn_map_input)
-
-        # Determine type of pooling to use for final pooling layer
-        # and add this layer to the network
-        if self.last_pool_style == 'avg':
-            x = tf.keras.layers.GlobalAveragePooling2D()(x)
-        elif self.last_pool_style == 'max':
-            x = tf.keras.layers.GlobalMaxPooling2D()(x)
+        if not self.add_interpretable_head:
+            return base_model
         else:
-            raise NotImplementedError
-        self.stage_outputs.append(x)
-        # ################################################################## #
-        # ################################################################## #
-        # ################################################################## #
+            # we expect the anchors, regression and classification values as first output
+            self.regression_out = base_model.outputs[0]
+            self.classification_out = base_model.outputs[1]
+            self.relationship_out = base_model.outputs[2]
 
-        # ################################################################## #
-        #                           MODEL CREATION                           #
-        # ################################################################## #
-        model = tf.keras.models.Model(inputs=[img_input, attn_map_input],
-                                      outputs=self.stage_outputs,
-                                      name=self.model_name)
-        # ################################################################## #
-        # ################################################################## #
-        # ################################################################## #
+            # "other" can be any additional output from custom sub-models, by default this will be []
+            self.other_out = base_model.outputs[3:]
 
-        return model
+            # apply predicted regression to anchors
+            boxes = custom.layers.BoxRegression(name='regressed_boxes')([self.anchors, self.regression_out])
+            boxes = custom.layers.BoxClipping(name='clipped_boxes')([base_model.inputs[0], boxes])
+
+            # filter detections (apply NMS / score threshold / select top-k)
+            detections = custom.layers.FilterDetections(
+                nms=self.nms,
+                class_specific_filter=self.class_specific_filter,
+                name='filtered_detections')([boxes,
+                                             self.classification_out,
+                                             self.relationship_out] +
+                                            self.other_out)
+
+            # construct the model
+            return tf.keras.models.Model(inputs=base_model.inputs, outputs=detections, name=self.model_name)

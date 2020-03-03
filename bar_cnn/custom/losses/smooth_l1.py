@@ -32,9 +32,9 @@ def smooth_l1(sigma=3.0):
         """ Compute the smooth L1 loss of y_pred w.r.t. y_true.
 
         Args:
-            y_true (Tensor): Groundtruths from the generator of shape (B, N, 5).
+            y_true (Tensor): Ground truths from the generator of shape (B, N, 5).
                 The last value for each box is the state of the anchor (one of : ignore, negative, positive).
-            y_pred (Tensor): Groundtruths from the network of shape (B, N, 4).
+            y_pred (Tensor): Ground truths from the network of shape (B, N, 4).
 
         Returns:
             The smooth L1 loss of y_pred w.r.t. y_true.
