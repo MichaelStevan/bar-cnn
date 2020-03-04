@@ -3,7 +3,6 @@ import math
 
 # Library Imports
 import tensorflow as tf
-import numpy as np
 
 
 class PriorProbability(tf.keras.initializers.Initializer):

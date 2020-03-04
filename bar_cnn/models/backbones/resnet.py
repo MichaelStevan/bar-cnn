@@ -27,8 +27,6 @@ Reference:
     - [Focal Loss for Dense Object Detection](https://arxiv.org/pdf/1708.02002.pdf)
 """
 
-import warnings
-
 # PyPi Library Imports
 import tensorflow as tf
 
