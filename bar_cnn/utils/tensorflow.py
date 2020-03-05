@@ -2,6 +2,7 @@
 import tensorflow as tf
 
 
+# DEPRECATED
 def resize_like(input_tensor, ref_tensor):
     """ Resize an image tensor to the same size/shape as a reference image tensor
 

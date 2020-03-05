@@ -18,8 +18,8 @@ limitations under the License.
 import tensorflow as tf
 
 
-class BoxClipping(tf.keras.layers.Layer):
-    """ Keras layer to clip box values to lie inside a given shape.
+class ResizeLike(tf.keras.layers.Layer):
+    """ tf.keras layer to resize a tensor to the reference tensor shape.
 
     Attributes:
         keras.layers.Layer: Base layer class.
@@ -29,6 +29,7 @@ class BoxClipping(tf.keras.layers.Layer):
                 -   These operations require managing weights,
                     losses, updates, and inter-layer connectivity.
     """
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -45,21 +46,27 @@ class BoxClipping(tf.keras.layers.Layer):
             TODO
         """
 
-        image, boxes = inputs
-        shape = tf.cast(tf.shape(image), tf.keras.backend.floatx())
+        input_tensor, ref_tensor = inputs
 
-        if tf.keras.backend.image_data_format() == 'channels_first':
-            _, _, height, width = tf.unstack(value=shape, axis=0)
-        else:
-            _, height, width, _ = tf.unstack(value=shape, axis=0)
+        return self.resize_like(input_tensor, ref_tensor)
 
-        x1, y1, x2, y2 = tf.unstack(value=boxes, axis=-1)
-        x1 = tf.clip_by_value(x1, clip_value_min=0, clip_value_max=width)
-        y1 = tf.clip_by_value(y1, clip_value_min=0, clip_value_max=height)
-        x2 = tf.clip_by_value(x2, clip_value_min=0, clip_value_max=width)
-        y2 = tf.clip_by_value(y2, clip_value_min=0, clip_value_max=height)
+    @staticmethod
+    def resize_like(input_tensor, ref_tensor):
+        """ Resize an image tensor to the same size/shape as a reference image tensor
 
-        return tf.stack(values=[x1, y1, x2, y2], axis=2)
+        Args:
+            input_tensor: (image tensor) Input image tensor that will be resized
+            ref_tensor: (image tensor) Reference image tensor that we want to resize the input tensor to.
+
+        Returns:
+            reshaped tensor
+        """
+        reshaped_tensor = tf.image.resize(images=input_tensor,
+                                          size=tf.shape(ref_tensor)[1:3],
+                                          method=tf.image.ResizeMethod.NEAREST_NEIGHBOR,
+                                          preserve_aspect_ratio=False,
+                                          antialias=False)
+        return reshaped_tensor
 
     def compute_output_shape(self, input_shape):
         """TODO: docstring
@@ -70,4 +77,7 @@ class BoxClipping(tf.keras.layers.Layer):
         Returns:
             TODO
         """
-        return input_shape[1]
+        if tf.keras.backend.image_data_format() == 'channels_first':
+            return (input_shape[0][0], input_shape[0][1]) + input_shape[1][2:4]
+        else:
+            return (input_shape[0][0],) + input_shape[1][1:3] + (input_shape[0][-1],)

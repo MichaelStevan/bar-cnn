@@ -172,6 +172,7 @@ class ResNetBoxAttnBackbone:
         conv_name_base = self.get_layer_name(prefix="res", stage=stage, block=block)
         bn_name_base = self.get_layer_name(prefix="bn", stage=stage, block=block)
         attn_map_name_base = self.get_layer_name(prefix="attn", stage=stage, block=block)
+        resize_name_base = self.get_layer_name(prefix="resize", stage=stage, block=block)
 
         x = tf.keras.layers.Conv2D(filters=filters1, kernel_size=(1, 1), use_bias=self.use_bias,
                                    kernel_initializer=self.reg_kernel_init,
@@ -188,8 +189,14 @@ class ResNetBoxAttnBackbone:
                                    name=conv_name_base + '2b')(x)
 
         # Get the output shape of the layer
-        attn_map_shaped = tf.keras.layers.Lambda(function=utils.tf.resize_like,
-                                                 arguments={'ref_tensor': x})(attn_map)
+        attn_map_shaped = custom.layers.ResizeLike(name=resize_name_base+'2b')([attn_map, x])
+
+        # -----------
+        # DEPRECATED
+        #
+        # attn_map_shaped = tf.keras.layers.Lambda(function=utils.tf.resize_like,
+        #                                          arguments={'ref_tensor': x})(attn_map)
+        # -----------
 
         # Get the number of filters required
         num_attn_filters = x.shape[3]
@@ -249,6 +256,7 @@ class ResNetBoxAttnBackbone:
         conv_name_base = self.get_layer_name(prefix="res", stage=stage, block=block)
         bn_name_base = self.get_layer_name(prefix="bn", stage=stage, block=block)
         attn_map_name_base = self.get_layer_name(prefix="attn", stage=stage, block=block)
+        resize_name_base = self.get_layer_name(prefix="resize", stage=stage, block=block)
 
         x = tf.keras.layers.Conv2D(filters=filters1, kernel_size=(1, 1),
                                    strides=strides, use_bias=self.use_bias,
@@ -266,8 +274,14 @@ class ResNetBoxAttnBackbone:
                                    name=conv_name_base + '2b')(x)
 
         # Get the output shape of the layer
-        attn_map_shaped = tf.keras.layers.Lambda(function=utils.tf.resize_like,
-                                                 arguments={'ref_tensor': x})(attn_map)
+        attn_map_shaped = custom.layers.ResizeLike(name=resize_name_base + '2b')([attn_map, x])
+
+        # -----------
+        # DEPRECATED
+        #
+        # attn_map_shaped = tf.keras.layers.Lambda(function=utils.tf.resize_like,
+        #                                          arguments={'ref_tensor': x})(attn_map)
+        # -----------
 
         # Get the number of filters required
         num_attn_filters = x.shape[3]
