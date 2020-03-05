@@ -21,3 +21,8 @@ dist/
 
 # PyCharm
 .idea
+
+# Troubleshooting Files & Folders
+/archive/*
+*.ipynb_checkpoints
+*.ipynb
