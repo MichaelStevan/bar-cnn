@@ -2,7 +2,7 @@
 import tensorflow as tf
 
 
-# DEPRECATED
+# -------------------- DEPRECATED FNS BELOW --------------------
 def resize_like(input_tensor, ref_tensor):
     """ Resize an image tensor to the same size/shape as a reference image tensor
 
@@ -19,4 +19,9 @@ def resize_like(input_tensor, ref_tensor):
                                       preserve_aspect_ratio=False,
                                       antialias=False,
                                       name=None)
+
+    DeprecationWarning("This function has been deprecated... and is currently not supposed to be used")
     return reshaped_tensor
+# --------------------------------------------------------------
+
+

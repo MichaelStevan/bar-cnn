@@ -84,7 +84,6 @@ class FilterDetections(tf.keras.layers.Layer):
         classification = inputs[1]
         relationship = inputs[2]
         other = inputs[3:]
-        print(inputs)
 
         # call filter_detections on each batch
         outputs = tf.map_fn(
@@ -99,8 +98,7 @@ class FilterDetections(tf.keras.layers.Layer):
 
         return outputs
 
-    def filter_detections(self,
-                          args):
+    def filter_detections(self, args):
         """ Filter detections using the boxes and classification values.
 
         Args:
@@ -135,7 +133,6 @@ class FilterDetections(tf.keras.layers.Layer):
             all_indices = []
 
             # perform per class filtering
-            print(classification.shape)
             for c in range(int(classification.shape[1])):
                 scores = classification[:, c]
                 labels = c * tf.ones((tf.shape(scores)[0],), dtype='int64')
@@ -203,9 +200,11 @@ class FilterDetections(tf.keras.layers.Layer):
         # set shapes, since we know what they are
         boxes.set_shape([self.max_detections, 4])
 
+        # Classification Outputs
         scores.set_shape([self.max_detections])
         labels.set_shape([self.max_detections])
 
+        # Predicate Outputs
         predicate_scores.set_shape([self.max_detections])
         predicate_labels.set_shape([self.max_detections])
 
@@ -249,7 +248,6 @@ class FilterDetections(tf.keras.layers.Layer):
 
         return indices
 
-    # TODO: Understanding
     def compute_output_shape(self, input_shape):
         """ Computes the output shapes given the input shapes.
 
@@ -277,8 +275,6 @@ class FilterDetections(tf.keras.layers.Layer):
                    ) for i in range(3, len(input_shape))
                ]
 
-    # TODO: Understanding
-    # TODO: Better Commenting
     def compute_mask(self, inputs, mask=None):
         """ This is required in Keras when there is more than 1 output.
 
