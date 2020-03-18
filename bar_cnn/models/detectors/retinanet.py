@@ -96,8 +96,11 @@ class RetinaNet:
                  ckpt_monitoring_metric="loss",
                  save_weights_only=False,
                  additional_callbacks=None,
+                 pretrained_weights="coco",
+                 load_model_from_file=True,
                  base_model_name='RetinaNet-Box-Attention-Model',
                  model_name='RetinaNet-Box-Attention-Model-With-Interpretable-Head'):
+
         """ Constructor method for this class
 
         Instantiate the class with the given args.
@@ -124,7 +127,9 @@ class RetinaNet:
             base_output_path (str, optional): Absolute path to the output directory
             ckpt_monitoring_metric (str, optional): Metric to use for determining ckpt callback points
             save_weights_only (bool, optional): Whether to save only the model weights and not state/arc.
-            additional_callbacks (list of additional callbacks): TODO
+            additional_callbacks (list of additional callbacks, optional): TODO
+            pretrained_weights (str, optional): One of [`coco`, `open_images`, <path-to-weight-file>, None]
+            load_model_from_file (str, optional): One of [<path-to-model-file>, None]
             base_model_name (str, optional): TODO
             model_name (str, optional): TODO
         """
@@ -157,6 +162,8 @@ class RetinaNet:
         self.ckpt_monitoring_metric = ckpt_monitoring_metric
         self.save_weights_only = save_weights_only
         self.additional_callbacks = additional_callbacks
+        self.pretrained_weights = pretrained_weights
+        self.load_model_from_file = load_model_from_file
         self.base_model_name = base_model_name
         self.model_name = model_name
 
@@ -187,7 +194,12 @@ class RetinaNet:
         self.pyramids = self.build_model_pyramid()
         self.anchors = self.build_anchors()
 
-        self.model = self.build_architecture()
+        if not self.load_model_from_file:
+            self.model = self.build_architecture()
+            if self.pretrained_weights:
+                self.load_weights()
+        else:
+            self.load_model()
 
         self.loss_fns = self.define_loss_fns()
         self.loss_wts = self.define_loss_wts()
@@ -212,6 +224,28 @@ class RetinaNet:
             'classification': 1.0,
             'relationship': 1.0
         }
+
+    @staticmethod
+    def download_coco_weights():
+        """ Downloads Coco model/weights and returns path to model/weights file.
+
+        Returns:
+            A string. The path to the model/weights file in tf.keras models cache directory
+        """
+
+        filename = "resnet50_coco_best_v2.1.0.h5"
+        resource = "https://github.com/fizyr/keras-retinanet/releases/download/0.5.1/{}".format(filename)
+
+        return tf.keras.utils.get_file(fname=filename, origin=resource, cache_subdir="models")
+
+    @staticmethod
+    def download_oi_weights():
+        """ Downloads Open Images model/weights and returns path to model/weights file.
+
+        Returns:
+            A string. The path to the model/weights file in tf.keras models cache directory
+        """
+        raise NotImplementedError()
 
     def define_optimizer(self):
         """ Defines the optimizer based on the passed string"""
@@ -436,24 +470,40 @@ class RetinaNet:
         """ Defines the class weightings if required"""
         raise NotImplementedError
 
-    def load_weights(self, abs_path_to_weights, weights_only=False):
+    def load_weights(self, load_layers_by_name=True, skip_layer_name_mismatch=True):
         """ Loads the weight file passed into the current model
 
         Args:
-            abs_path_to_weights (str): TODO
-            weights_only (bool, optional): TODO
+            load_layers_by_name (bool): Whether to enforce strict name typing when loading layer weights
+            skip_layer_name_mismatch (bool): Whether to allow mismatched layers to be bypassed when loading
         """
-        if weights_only:
-            self.model.load_weights(abs_path_to_weights, by_name=True)
+        if self.pretrained_weights == "coco":
+            f_path = self.download_coco_weights()
+        elif self.pretrained_weights == "open_images":
+            f_path = self.download_oi_weights()
+        elif self.pretrained_weights is not None:
+            f_path = self.pretrained_weights
         else:
-            self.model = tf.keras.models.load_model(filepath=abs_path_to_weights,
-                                                    custom_objects=None,
-                                                    compile=True)
+            raise ValueError("Invalid path-to-weights/string given as an argument")
+
+        self.model.load_weights(filepath=f_path,
+                                by_name=load_layers_by_name,
+                                skip_mismatch=skip_layer_name_mismatch)
+
+    def load_model(self, backbone_custom_objects=None):
+        """ Loads the weight file passed into the current model
+
+        Args:
+            backbone_custom_objects (TODO): TODO
+        """
+        self.model = tf.keras.models.load_model(filepath=self.load_model_from_file,
+                                                custom_objects=backbone_custom_objects,
+                                                compile=True)
 
     def compile_model(self):
         """ Completes model compilation process using specified parameters """
 
-        print("[INFO] compiling model ...\n")
+        print("[INFO] ... compiling model ...\n")
         self.model.compile(optimizer=self.optimizer,
                            loss=self.loss_fns,
                            metrics=self.metrics,
@@ -462,7 +512,7 @@ class RetinaNet:
                            weighted_metrics=None,
                            target_tensors=None,
                            distribute=None)
-        print("\n[INFO] compiling model complete... \n\n")
+        print("\n[INFO] ... compiling model complete... \n\n")
 
     def fit_model(self, TF_DS):
         """ Launches model training process using specified parameters
@@ -538,8 +588,9 @@ class RetinaNet:
         model_pyramid = []
         for model_name, model in self.sub_models:
             pyramid_feature_layer_outputs = [model(f) for f in self.pyramid_features]
-            model_pyramid.append(tf.keras.layers.Concatenate(
-                axis=1, name=model_name)(pyramid_feature_layer_outputs))
+            model_pyramid.append(
+                tf.keras.layers.Concatenate(axis=1, name=model_name)(pyramid_feature_layer_outputs)
+            )
 
         return model_pyramid
 
