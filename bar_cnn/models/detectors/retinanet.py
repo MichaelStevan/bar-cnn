@@ -97,7 +97,7 @@ class RetinaNet:
                  save_weights_only=False,
                  additional_callbacks=None,
                  pretrained_weights="coco",
-                 load_model_from_file=True,
+                 load_model_from_file=False,
                  base_model_name='RetinaNet-Box-Attention-Model',
                  model_name='RetinaNet-Box-Attention-Model-With-Interpretable-Head'):
 
@@ -486,6 +486,7 @@ class RetinaNet:
         else:
             raise ValueError("Invalid path-to-weights/string given as an argument")
 
+        # Load the weights into the model
         self.model.load_weights(filepath=f_path,
                                 by_name=load_layers_by_name,
                                 skip_mismatch=skip_layer_name_mismatch)
