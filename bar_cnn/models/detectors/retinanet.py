@@ -245,7 +245,10 @@ class RetinaNet:
         Returns:
             A string. The path to the model/weights file in tf.keras models cache directory
         """
-        raise NotImplementedError()
+        filename = "resnet50_oid_v1.0.0.h5"
+        resource = "https://github.com/fizyr/keras-retinanet/releases/download/0.5.1/"
+
+        return tf.keras.utils.get_file(fname=filename, origin=resource, cache_subdir="models")
 
     def define_optimizer(self):
         """ Defines the optimizer based on the passed string"""
