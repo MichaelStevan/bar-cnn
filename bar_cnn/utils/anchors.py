@@ -2,6 +2,8 @@
 import numpy as np
 import tensorflow as tf
 
+# Local Imports
+from bar_cnn.utils.compute_overlap import compute_overlap
 
 class AnchorParameters:
     """ TODO """

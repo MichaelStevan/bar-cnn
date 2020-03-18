@@ -80,7 +80,7 @@ class RetinaNet:
                  relationship_feature_size=256,
                  relationship_prior_probability=0.01,
                  relationship_model_head_name="relationship_model_head",
-                 num_classes=100,
+                 num_classes=81,
                  num_predicates=100,
                  num_anchors=None,
                  sub_models=None,
