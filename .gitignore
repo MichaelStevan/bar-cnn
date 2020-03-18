@@ -1,5 +1,7 @@
-# Compiled python modules.
+# Compiled python modules and cython related stuff
 *.pyc
+*.c
+*.so
 
 # Byte-compiled
 _pycache__/
