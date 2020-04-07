@@ -1,2 +1,2 @@
-from bar_cnn.custom.layers.upsample_like.archive.batch_normalization import BatchNormalization
+from bar_cnn.custom.layers.archive.batch_normalization import BatchNormalization
 
