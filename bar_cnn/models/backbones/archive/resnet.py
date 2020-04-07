@@ -174,21 +174,17 @@ class ResNetBoxAttnBackbone:
             return 1
 
     @staticmethod
-    def get_layer_name(block, stage, name=""):
+    def get_layer_name(block, stage):
         """ Get layer name built from prefix, stage, and block number
 
         Args:
             block (string): TODO
             stage (string): TODO
-            version (str, optional): TODO
-            name (str, optional): TODO
 
         Returns:
             Base of layer name as a string
         """
-        num_to_alpha = ["a", "b", "c", "d", "e", "f", "g", "h", "i"]
-        block = num_to_alpha[block-1]
-        return "{}{}{}_branch".format(name, str(stage), str(block))
+        return "conv{}_block{}_".format(str(stage), str(block))
 
     def identity_block(self,
                        input_tensor,
@@ -211,53 +207,48 @@ class ResNetBoxAttnBackbone:
             Output tensor for the block.
         """
         # Names take the form "<prefix><stage><block>_branch"
-        conv_name_base = self.get_layer_name(stage=stage, block=block, name="res")
-        bn_name_base = self.get_layer_name(stage=stage, block=block, name="bn")
-        act_name_base = self.get_layer_name(stage=stage, block=block, name="relu")
-        resize_name_base = self.get_layer_name(stage=stage, block=block, name="resize")
-        attn_name_base = self.get_layer_name(stage=stage, block=block, name="attn")
-        add_name_base = self.get_layer_name(stage=stage, block=block, name="add")
+        conv_name_base = self.get_layer_name(stage=stage, block=block)
 
         # map filter size to filers1, filters2, and filters3
         filters1, filters2, filters3 = filters
 
         x = tf.keras.layers.Conv2D(filters=filters1, kernel_size=(1, 1), use_bias=self.use_bias,
                                    kernel_initializer=self.reg_kernel_init,
-                                   name=conv_name_base + '2a')(input_tensor)
+                                   name=conv_name_base + '1_conv')(input_tensor)
         x = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
-                                               name=bn_name_base + '2a')(x)
-        x = tf.keras.layers.Activation(self.activation_fn, name=act_name_base + '2a')(x)
+                                               name=conv_name_base + '1_bn')(x)
+        x = tf.keras.layers.Activation(self.activation_fn, name=conv_name_base + '1_relu')(x)
 
         # This is the convolutional layer that we want to modify.
         x = tf.keras.layers.Conv2D(filters=filters2, kernel_size=kernel_size,
                                    padding=self.pad_style, use_bias=self.use_bias,
                                    kernel_initializer=self.reg_kernel_init,
-                                   name=conv_name_base + '2b')(x)
+                                   name=conv_name_base + '2_conv')(x)
         # Get the output shape of the layer
         attn_map_shaped = \
-            custom.layers.ResizeLike(name=resize_name_base + '2b')([attn_map, x])
+            custom.layers.ResizeLike(name=conv_name_base + 'resize')([attn_map, x])
         # Get the number of filters required
         num_attn_filters = x.shape[3]
         x = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
-                                               name=bn_name_base + '2b')(x)
+                                               name=conv_name_base + '2_bn')(x)
         # Do a 3x3 convolution on the attention map
         attention_layer = tf.keras.layers.Conv2D(filters=num_attn_filters, kernel_size=3,
                                                  padding=self.pad_style, use_bias=self.use_bias,
                                                  kernel_initializer=self.attn_kernel_init,
-                                                 name=attn_name_base + '2b')(attn_map_shaped)
-        x = tf.keras.layers.Add(name=add_name_base + '2b')([x, attention_layer])
-        x = tf.keras.layers.Activation(self.activation_fn, name=act_name_base + '2b')(x)
+                                                 name=conv_name_base + 'attn')(attn_map_shaped)
+        x = tf.keras.layers.Add(name=conv_name_base + 'add_attn')([x, attention_layer])
+        x = tf.keras.layers.Activation(self.activation_fn, name=conv_name_base + '2_relu')(x)
 
         x = tf.keras.layers.Conv2D(filters=filters3,
                                    kernel_size=(1, 1),
                                    use_bias=self.use_bias,
                                    kernel_initializer=self.reg_kernel_init,
-                                   name=conv_name_base + '2c')(x)
+                                   name=conv_name_base + '3_conv')(x)
         x = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
-                                               name=bn_name_base + '2c')(x)
+                                               name=conv_name_base + '3_bn')(x)
 
-        x = tf.keras.layers.Add(name=add_name_base + '2c')([input_tensor, x])
-        x = tf.keras.layers.Activation(self.activation_fn, name=act_name_base + '2c')(x)
+        x = tf.keras.layers.Add(name=conv_name_base + '_add')([input_tensor, x])
+        x = tf.keras.layers.Activation(self.activation_fn, name=conv_name_base + 'out')(x)
 
         return x
 
@@ -286,12 +277,7 @@ class ResNetBoxAttnBackbone:
         Note that from stage 3, the first conv layer at main path is with strides=(2, 2)
         Note that the shortcut should have strides=(2, 2)
         """
-        conv_name_base = self.get_layer_name(stage=stage, block=block, name="res")
-        bn_name_base = self.get_layer_name(stage=stage, block=block, name="bn")
-        act_name_base = self.get_layer_name(stage=stage, block=block, name="relu")
-        resize_name_base = self.get_layer_name(stage=stage, block=block, name="resize")
-        attn_name_base = self.get_layer_name(stage=stage, block=block, name="attn")
-        add_name_base = self.get_layer_name(stage=stage, block=block, name="add")
+        conv_name_base = self.get_layer_name(stage=stage, block=block)
 
         filters1, filters2, filters3 = filters
 
@@ -299,47 +285,47 @@ class ResNetBoxAttnBackbone:
         shortcut = tf.keras.layers.Conv2D(filters=filters3, kernel_size=(1, 1),
                                           strides=strides, use_bias=self.use_bias,
                                           kernel_initializer=self.reg_kernel_init,
-                                          name=conv_name_base + '1')(input_tensor)
+                                          name=conv_name_base + '0_conv')(input_tensor)
         shortcut = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
-                                                      name=bn_name_base + '1')(shortcut)
+                                                      name=conv_name_base + '0_bn')(shortcut)
         # ------------------------------------------------------------------------------
 
         x = tf.keras.layers.Conv2D(filters=filters1, kernel_size=(1, 1),
                                    strides=strides, use_bias=self.use_bias,
                                    kernel_initializer=self.reg_kernel_init,
-                                   name=conv_name_base + '2a')(input_tensor)
+                                   name=conv_name_base + '1_conv')(input_tensor)
         x = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
-                                               name=bn_name_base + '2a')(x)
-        x = tf.keras.layers.Activation(self.activation_fn, name=act_name_base + '2a')(x)
+                                               name=conv_name_base + '1_bn')(x)
+        x = tf.keras.layers.Activation(self.activation_fn, name=conv_name_base + '1_relu')(x)
 
         # This is the convolutional block that we want to modify.
         x = tf.keras.layers.Conv2D(filters=filters2, kernel_size=kernel_size,
                                    padding=self.pad_style, use_bias=self.use_bias,
                                    kernel_initializer=self.reg_kernel_init,
-                                   name=conv_name_base + '2b')(x)
+                                   name=conv_name_base + '2_conv')(x)
         # Get the output shape of the layer
-        attn_map_shaped = custom.layers.ResizeLike(name=resize_name_base + '2b')([attn_map, x])
+        attn_map_shaped = custom.layers.ResizeLike(name=conv_name_base + 'resize')([attn_map, x])
         # Get the number of filters required
         num_attn_filters = x.shape[3]
         x = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
-                                               name=bn_name_base + '2b')(x)
+                                               name=conv_name_base + '2_bn')(x)
         # Do a 3x3 convolution on the attention map
         attention_layer = tf.keras.layers.Conv2D(filters=num_attn_filters, kernel_size=3,
                                                  padding=self.pad_style, use_bias=self.use_bias,
                                                  kernel_initializer=self.attn_kernel_init,
-                                                 name=attn_name_base + '2b')(attn_map_shaped)
-        x = tf.keras.layers.Add(name=add_name_base + '2b')([x, attention_layer])
-        x = tf.keras.layers.Activation(self.activation_fn, name=act_name_base + '2b')(x)
+                                                 name=conv_name_base + 'attn')(attn_map_shaped)
+        x = tf.keras.layers.Add(name=conv_name_base + 'add_attn')([x, attention_layer])
+        x = tf.keras.layers.Activation(self.activation_fn, name=conv_name_base + '2_relu')(x)
 
         x = tf.keras.layers.Conv2D(filters=filters3, kernel_size=(1, 1), use_bias=self.use_bias,
                                    kernel_initializer=self.reg_kernel_init,
-                                   name=conv_name_base + '2c')(x)
+                                   name=conv_name_base + '3_conv')(x)
         x = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
-                                               name=bn_name_base + '2c')(x)
+                                               name=conv_name_base + '3_bn')(x)
 
         # skip connection
-        x = tf.keras.layers.Add(name=add_name_base + '2c')([x, shortcut])
-        x = tf.keras.layers.Activation(self.activation_fn, name=act_name_base + '2c')(x)
+        x = tf.keras.layers.Add(name=conv_name_base + 'add')([shortcut, x])
+        x = tf.keras.layers.Activation(self.activation_fn, name=conv_name_base + '2_out')(x)
 
         return x
 
@@ -374,11 +360,11 @@ class ResNetBoxAttnBackbone:
         x = tf.keras.layers.Conv2D(filters=64, kernel_size=(7, 7), strides=(2, 2),
                                    padding=self.pad_style, use_bias=self.use_bias,
                                    kernel_initializer=self.reg_kernel_init,
-                                   name='conv1')(x)
+                                   name='conv1_conv')(x)
 
         x = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
-                                               name='bn_conv1')(x)
-        x = tf.keras.layers.Activation(self.activation_fn, name="relu_conv1")(x)
+                                               name='conv1_bn')(x)
+        x = tf.keras.layers.Activation(self.activation_fn, name="conv1_relu")(x)
         x = tf.keras.layers.ZeroPadding2D(padding=(1, 1), name="pool1_pad")(x)
         x = tf.keras.layers.MaxPooling2D(pool_size=(3, 3), strides=(2, 2), name="pool1_pool")(x)
         # ################################################################## #
