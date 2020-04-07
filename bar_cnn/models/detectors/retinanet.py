@@ -73,13 +73,13 @@ class RetinaNet:
                  backbone_layers,
                  pyramid_feature_size=256,
                  regression_feature_size=256,
-                 regression_model_head_name="regression_model_head",
+                 regression_model_head_name="regression_submodel",
                  classification_feature_size=256,
                  classification_prior_probability=0.01,
-                 classification_model_head_name="classification_model_head",
+                 classification_model_head_name="classification_submodel",
                  relationship_feature_size=256,
                  relationship_prior_probability=0.01,
-                 relationship_model_head_name="relationship_model_head",
+                 relationship_model_head_name="relationship_submodel",
                  num_classes=80,
                  num_predicates=10,
                  num_anchors=None,
@@ -197,7 +197,9 @@ class RetinaNet:
         if not self.load_model_from_file:
             self.model = self.build_architecture()
             if self.pretrained_weights:
+                print("\n... [INFO] Loading Weights Started ...")
                 self.load_weights()
+                print("... [INFO] Loading Weights Completed ...\n")
         else:
             self.load_model()
 

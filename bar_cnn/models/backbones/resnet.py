@@ -100,6 +100,8 @@ class ResNetBoxAttnBackbone:
         self.auto_build = auto_model_build
         self.weights = weights
 
+        self.bn_epsilon = 1.001e-5
+
         # Initialize stage output array
         # to be populated when using method build_architecture
         self.stage_outputs = []
@@ -210,7 +212,7 @@ class ResNetBoxAttnBackbone:
         x = tf.keras.layers.Conv2D(filters=filters1, kernel_size=(1, 1), use_bias=self.use_bias,
                                    kernel_initializer=self.reg_kernel_init,
                                    name=conv_name_base + '1_conv')(input_tensor)
-        x = tf.keras.layers.BatchNormalization(axis=bn_axis, epsilon=1.001e-5,
+        x = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
                                                name=conv_name_base + '1_bn')(x)
         x = tf.keras.layers.Activation(self.activation_fn, name=conv_name_base + '1_relu')(x)
 
@@ -224,7 +226,7 @@ class ResNetBoxAttnBackbone:
             custom.layers.ResizeLike(name=conv_name_base + 'resize')([attn_map, x])
         # Get the number of filters required
         num_attn_filters = x.shape[3]
-        x = tf.keras.layers.BatchNormalization(axis=bn_axis, epsilon=1.001e-5,
+        x = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
                                                name=conv_name_base + '2_bn')(x)
         # Do a 3x3 convolution on the attention map
         attention_layer = tf.keras.layers.Conv2D(filters=num_attn_filters, kernel_size=3,
@@ -239,7 +241,7 @@ class ResNetBoxAttnBackbone:
                                    use_bias=self.use_bias,
                                    kernel_initializer=self.reg_kernel_init,
                                    name=conv_name_base + '3_conv')(x)
-        x = tf.keras.layers.BatchNormalization(axis=bn_axis, epsilon=1.001e-5,
+        x = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
                                                name=conv_name_base + '3_bn')(x)
 
         x = tf.keras.layers.Add(name=conv_name_base + '_add')([input_tensor, x])
@@ -281,7 +283,7 @@ class ResNetBoxAttnBackbone:
                                           strides=strides, use_bias=self.use_bias,
                                           kernel_initializer=self.reg_kernel_init,
                                           name=conv_name_base + '0_conv')(input_tensor)
-        shortcut = tf.keras.layers.BatchNormalization(axis=bn_axis, epsilon=1.001e-5,
+        shortcut = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
                                                       name=conv_name_base + '0_bn')(shortcut)
         # ------------------------------------------------------------------------------
 
@@ -289,7 +291,7 @@ class ResNetBoxAttnBackbone:
                                    strides=strides, use_bias=self.use_bias,
                                    kernel_initializer=self.reg_kernel_init,
                                    name=conv_name_base + '1_conv')(input_tensor)
-        x = tf.keras.layers.BatchNormalization(axis=bn_axis, epsilon=1.001e-5,
+        x = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
                                                name=conv_name_base + '1_bn')(x)
         x = tf.keras.layers.Activation(self.activation_fn, name=conv_name_base + '1_relu')(x)
 
@@ -302,7 +304,7 @@ class ResNetBoxAttnBackbone:
         attn_map_shaped = custom.layers.ResizeLike(name=conv_name_base + 'resize')([attn_map, x])
         # Get the number of filters required
         num_attn_filters = x.shape[3]
-        x = tf.keras.layers.BatchNormalization(axis=bn_axis, epsilon=1.001e-5,
+        x = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
                                                name=conv_name_base + '2_bn')(x)
         # Do a 3x3 convolution on the attention map
         attention_layer = tf.keras.layers.Conv2D(filters=num_attn_filters, kernel_size=3,
@@ -315,7 +317,7 @@ class ResNetBoxAttnBackbone:
         x = tf.keras.layers.Conv2D(filters=filters3, kernel_size=(1, 1), use_bias=self.use_bias,
                                    kernel_initializer=self.reg_kernel_init,
                                    name=conv_name_base + '3_conv')(x)
-        x = tf.keras.layers.BatchNormalization(axis=bn_axis, epsilon=1.001e-5,
+        x = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
                                                name=conv_name_base + '3_bn')(x)
 
         # skip connection
@@ -357,7 +359,7 @@ class ResNetBoxAttnBackbone:
                                    kernel_initializer=self.reg_kernel_init,
                                    name='conv1_conv')(x)
 
-        x = tf.keras.layers.BatchNormalization(axis=bn_axis, epsilon=1.001e-5,
+        x = tf.keras.layers.BatchNormalization(axis=self.bn_axis, epsilon=self.bn_epsilon,
                                                name='conv1_bn')(x)
         x = tf.keras.layers.Activation(self.activation_fn, name="conv1_relu")(x)
         x = tf.keras.layers.ZeroPadding2D(padding=(1, 1), name="pool1_pad")(x)
