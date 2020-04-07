@@ -3,6 +3,10 @@
 *.c
 *.so
 
+# Ignore model files
+*.hd5f
+*.h5
+
 # Byte-compiled
 _pycache__/
 .cache/

@@ -80,8 +80,8 @@ class RetinaNet:
                  relationship_feature_size=256,
                  relationship_prior_probability=0.01,
                  relationship_model_head_name="relationship_model_head",
-                 num_classes=81,
-                 num_predicates=100,
+                 num_classes=80,
+                 num_predicates=10,
                  num_anchors=None,
                  sub_models=None,
                  nms=True,
@@ -306,7 +306,7 @@ class RetinaNet:
             'kernel_size': 3,
             'strides': 1,
             'padding': 'same',
-            'kernel_initializer': tf.random_normal_initializer(mean=0.0, stddev=0.01),
+            'kernel_initializer': tf.keras.initializers.RandomNormal(mean=0.0, stddev=0.01, seed=None),
             'bias_initializer': 'zeros'
         }
 
@@ -356,7 +356,8 @@ class RetinaNet:
             'kernel_size': 3,
             'strides': 1,
             'padding': 'same',
-            'kernel_initializer': tf.random_normal_initializer(mean=0.0, stddev=0.01),
+            'kernel_initializer': tf.keras.initializers.RandomNormal(mean=0.0, stddev=0.01, seed=None),
+
         }
 
         # Fix this with the channels stuff - TODO
@@ -405,7 +406,7 @@ class RetinaNet:
             'kernel_size': 3,
             'strides': 1,
             'padding': 'same',
-            'kernel_initializer': tf.random_normal_initializer(mean=0.0, stddev=0.01),
+            'kernel_initializer': tf.keras.initializers.RandomNormal(mean=0.0, stddev=0.01, seed=None),
         }
 
         # Fix this with the channels stuff - TODO
@@ -434,8 +435,9 @@ class RetinaNet:
                                         name='pyramid_relationship_permute')(x)
 
         # reshape output and apply sigmoid
-        x = tf.keras.layers.Reshape(target_shape=(-1, self.num_classes),
+        x = tf.keras.layers.Reshape(target_shape=(-1, self.num_predicates),
                                     name='pyramid_relationship_reshape')(x)
+
         outputs = tf.keras.layers.Activation(activation='sigmoid',
                                              name='pyramid_relationship_sigmoid')(x)
 
@@ -473,7 +475,7 @@ class RetinaNet:
         """ Defines the class weightings if required"""
         raise NotImplementedError
 
-    def load_weights(self, load_layers_by_name=True, skip_layer_name_mismatch=True):
+    def load_weights(self, load_layers_by_name=True, skip_layer_name_mismatch=False):
         """ Loads the weight file passed into the current model
 
         Args:
@@ -613,8 +615,7 @@ class RetinaNet:
                                           stride=self.anchor_parameters.strides[i],
                                           ratios=self.anchor_parameters.ratios,
                                           scales=self.anchor_parameters.scales,
-                                          name='anchors_{}'.format(i))(f)
-            for i, f in enumerate(self.pyramid_features)
+                                          name='anchors_{}'.format(i))(f) for i, f in enumerate(self.pyramid_features)
         ]
 
         return tf.keras.layers.Concatenate(axis=1, name='anchors')(anchors)
@@ -638,7 +639,8 @@ class RetinaNet:
             base_model = tf.keras.models.Model(inputs=self.input_tensors,
                                                outputs=self.pyramids,
                                                name=self.base_model_name)
-
+            print("BASE MODEL")
+            print(base_model.summary())
         if not self.add_interpretable_head:
             return base_model
         else:

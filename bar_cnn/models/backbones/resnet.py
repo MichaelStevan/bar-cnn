@@ -64,9 +64,10 @@ class ResNetBoxAttnBackbone:
                  last_pool=None,
                  utilize_bias=False,
                  padding_style="same",
-                 freeze_batch_norm=True,
+                 freeze_batch_norm=False,
                  model_name="resnet-bar-cnn",
-                 auto_model_build=True):
+                 auto_model_build=True,
+                 weights=None):
         """ Constructor method for this class
 
         Instantiate the class with the given args.
@@ -83,6 +84,7 @@ class ResNetBoxAttnBackbone:
             freeze_batch_norm (bool, optional): TODO
             model_name (str, optional): TODO
             auto_model_build (bool, optional): TODO
+            weights (str, optional): TODO
         """
 
         self.image_shape = (image_size, image_size, 3)
@@ -96,6 +98,7 @@ class ResNetBoxAttnBackbone:
         self.freeze_bn = freeze_batch_norm
         self.model_name = model_name
         self.auto_build = auto_model_build
+        self.weights = weights
 
         # Initialize stage output array
         # to be populated when using method build_architecture
@@ -106,6 +109,10 @@ class ResNetBoxAttnBackbone:
             # Use functions to define more complicated attributes
             self.model = self.build_architecture()
 
+            # If weights are passed at this stage load them in
+            if self.weights:
+                self.load_weights()
+
         else:
             self.model = None
 
@@ -114,13 +121,44 @@ class ResNetBoxAttnBackbone:
                   "PLEASE RUN THE FOLLOWING BUILD STEPS:...\n\t"
                   "1. <model_instance>.build_architecture()")
 
-    def load_weights(self, abs_path_to_weights):
+        self.backbone = self.model.outputs[1:]
+        self.inputs = self.model.input
+
+    def load_weights(self, by_name=True, skip_mismatch=True):
         """ Loads the weight file passed into the current model
 
         Args:
-            abs_path_to_weights (str): TODO
+            skip_mismatch (bool, optional): If a path is provided and ImageNet is false than
+                this will dictate how the weights are loaded into the model architecture
+            by_name (bool, optional): If a path is provided and ImageNet is false than
+                this will dictate how the weights are loaded into the model architecture
         """
-        self.model.load_weights(abs_path_to_weights, by_name=True)
+        if self.weights == "imagenet":
+            weight_path = self.download_imagenet_weights()
+        elif self.weights is not None:
+            weight_path = self.weights
+        else:
+            raise ValueError("One of either ...\n\t`imagenet=True` or "
+                             "\n\t`abs_path_to_weights=`<path-to-weights-file.h5>` ...\nmust"
+                             " be passed to the function. Without either no weights can be loaded.\n")
+
+        self.model.load_weights(weight_path, by_name=by_name, skip_mismatch=skip_mismatch)
+
+    @staticmethod
+    def download_imagenet_weights():
+        """ Downloads Coco model/weights and returns path to model/weights file.
+
+        Returns:
+            A string. The path to the model/weights file in tf.keras models cache directory
+        """
+        filename = "resnet50_weights_tf_dim_ordering_tf_kernels_notop.h5"
+        resource = "https://github.com/fchollet/deep-learning-models/" \
+                   "releases/download/v0.2/{}".format(filename)
+
+        return tf.keras.utils.get_file(fname=filename,
+                                       origin=resource,
+                                       md5_hash='a268eb855778b3df3c7506639542a6af',
+                                       cache_subdir="models")
 
     @staticmethod
     def get_bn_axis():
@@ -189,7 +227,7 @@ class ResNetBoxAttnBackbone:
                                    name=conv_name_base + '2b')(x)
 
         # Get the output shape of the layer
-        attn_map_shaped = custom.layers.ResizeLike(name=resize_name_base+'2b')([attn_map, x])
+        attn_map_shaped = custom.layers.ResizeLike(name=resize_name_base + '2b')([attn_map, x])
 
         # -----------
         # DEPRECATED

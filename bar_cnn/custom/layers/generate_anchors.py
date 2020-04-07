@@ -25,17 +25,12 @@ class GenerateAnchors(tf.keras.layers.Layer):
         __init__ is called when ever an object of the class is constructed.
 
         Args:
-            size (TODO)             : The base size of the anchors to generate.
-            stride (TODO)           : The stride of the anchors to generate.
-            ratios (TODO, optional) : The ratios of the anchors to generate
-            scales (TODO, optional) : The scales of the anchors to generate
-
-        *args:
-            TODO
-
-        **kwargs:
-            TODO
-
+            size (TODO): The base size of the anchors to generate.
+            stride (TODO): The stride of the anchors to generate.
+            ratios (TODO, optional): The ratios of the anchors to generate
+            scales (TODO, optional): The scales of the anchors to generate
+            *args: TODO
+            **kwargs: TODO
         """
         self.size = size
         self.stride = stride
@@ -45,9 +40,10 @@ class GenerateAnchors(tf.keras.layers.Layer):
 
         self.ratios = anchor_parameters.ratios
         self.scales = anchor_parameters.scales
+
         self.num_anchors = anchor_parameters.num_anchors
 
-        self.anchors = tf.keras.backend.variable(anchor_parameters.generate_anchors(base_size=size))
+        self.anchors = anchor_parameters.generate_anchors(base_size=self.size).astype(np.float32)
         super(GenerateAnchors, self).__init__(*args, **kwargs)
 
     # TODO: Understanding
@@ -70,12 +66,12 @@ class GenerateAnchors(tf.keras.layers.Layer):
         # generate proposals from bbox deltas and shifted anchors
         if tf.keras.backend.image_data_format() == 'channels_first':
             anchors = utils.anchors.shift(shape=features_shape[2:4],
-                                          stride=self.stride,
-                                          anchors=self.anchors)
+                                               stride=self.stride,
+                                               anchors=self.anchors)
         else:
             anchors = utils.anchors.shift(shape=features_shape[1:3],
-                                          stride=self.stride,
-                                          anchors=self.anchors)
+                                               stride=self.stride,
+                                               anchors=self.anchors)
 
         anchors = tf.tile(input=tf.expand_dims(anchors, axis=0),
                           multiples=(features_shape[0], 1, 1))
