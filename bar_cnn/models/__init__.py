@@ -38,7 +38,7 @@ def load_model(filepath, backbone_name='resnet'):
 
     """
     # TODO
-    if file_path:
+    if filepath:
         pass
 
     # TODO
