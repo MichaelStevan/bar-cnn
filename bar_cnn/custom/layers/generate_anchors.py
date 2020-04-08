@@ -66,12 +66,12 @@ class GenerateAnchors(tf.keras.layers.Layer):
         # generate proposals from bbox deltas and shifted anchors
         if tf.keras.backend.image_data_format() == 'channels_first':
             anchors = utils.anchors.shift(shape=features_shape[2:4],
-                                               stride=self.stride,
-                                               anchors=self.anchors)
+                                          stride=self.stride,
+                                          anchors=self.anchors)
         else:
             anchors = utils.anchors.shift(shape=features_shape[1:3],
-                                               stride=self.stride,
-                                               anchors=self.anchors)
+                                          stride=self.stride,
+                                          anchors=self.anchors)
 
         anchors = tf.tile(input=tf.expand_dims(anchors, axis=0),
                           multiples=(features_shape[0], 1, 1))

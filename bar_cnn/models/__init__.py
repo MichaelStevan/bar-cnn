@@ -20,6 +20,7 @@ import tensorflow as tf
 # Local Imports
 from bar_cnn.models import backbones
 
+
 def load_model(filepath, backbone_name='resnet'):
     """ Loads model using the correct custom objects (backbone, etc.)
 
@@ -36,7 +37,11 @@ def load_model(filepath, backbone_name='resnet'):
         ValueError: In case of an invalid savefile or path
 
     """
+    # TODO
+    if file_path:
+        pass
 
+    # TODO
     if backbone_name == "resnet":
         backbone = backbones.resnet
     else:

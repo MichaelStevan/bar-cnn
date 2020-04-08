@@ -180,7 +180,6 @@ class ResNetBoxAttnBackbone:
         Args:
             block (string): TODO
             stage (string): TODO
-            version (str, optional): TODO
             name (str, optional): TODO
 
         Returns:

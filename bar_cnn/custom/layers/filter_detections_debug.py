@@ -5,7 +5,7 @@ def filter_detections(
         boxes,
         classification,
         relationship,
-        other=[],
+        other=None,
         class_specific_filter=True,
         nms=True,
         score_threshold=0.05,
@@ -14,14 +14,15 @@ def filter_detections(
 ):
     """ Filter detections using the boxes and classification values.
     Args
-        boxes                 : Tensor of shape (num_boxes, 4) containing the boxes in (x1, y1, x2, y2) format.
-        classification        : Tensor of shape (num_boxes, num_classes) containing the classification scores.
-        other                 : List of tensors of shape (num_boxes, ...) to filter along with the boxes and classification scores.
-        class_specific_filter : Whether to perform filtering per class, or take the best scoring class and filter those.
-        nms                   : Flag to enable/disable non maximum suppression.
-        score_threshold       : Threshold used to prefilter the boxes with.
-        max_detections        : Maximum number of detections to keep.
-        nms_threshold         : Threshold for the IoU value to determine when a box should be suppressed.
+        boxes (tensor): Shape (num_boxes, 4) containing the boxes in (x1, y1, x2, y2) format.
+        classification (tensor): Shape (num_boxes, num_classes) containing the classification scores.
+        other (list of tensors, optional): Used to filter along with the boxes and classification scores.
+        class_specific_filter (bool, optional): Whether to perform filtering per class,
+            or take the best scoring class and filter those.
+        nms (bool, optional): Flag to enable/disable non maximum suppression.
+        score_threshold (float, optional): Threshold used to prefilter the boxes with.
+        max_detections (int, optional): Maximum number of detections to keep.
+        nms_threshold (float, optional): Threshold for the IoU value to determine when a box should be suppressed.
     Returns
         A list of [boxes, scores, labels, other[0], other[1], ...].
         boxes is shaped (max_detections, 4) and contains the (x1, y1, x2, y2) of the non-suppressed boxes.
@@ -30,27 +31,32 @@ def filter_detections(
         other[i] is shaped (max_detections, ...) and contains the filtered other[i] data.
         In case there are less than max_detections detections, the tensors are padded with -1's.
     """
+    # Avoid `default argument is mutable` warning
+    if other is None:
+        other = []
 
-    def _filter_detections(scores, labels):
+    def _filter_detections(_scores, _labels):
         # Threshold based on score.
-        indices = tf.where(tf.keras.backend.greater(scores, score_threshold))
+        _indices = tf.where(tf.keras.backend.greater(_scores, score_threshold))
 
         if nms:
-            filtered_boxes = tf.gather_nd(boxes, indices)
-            filtered_scores = tf.keras.backend.gather(scores, indices)[:, 0]
+            filtered_boxes = tf.gather_nd(boxes, _indices)
+            filtered_scores = tf.keras.backend.gather(_scores, _indices)[:, 0]
 
             # Perform NMS.
-            nms_indices = tf.image.non_max_suppression(filtered_boxes, filtered_scores, max_output_size=max_detections,
+            nms_indices = tf.image.non_max_suppression(filtered_boxes,
+                                                       filtered_scores,
+                                                       max_output_size=max_detections,
                                                        iou_threshold=nms_threshold)
 
             # Filter indices based on NMS.
-            indices = tf.keras.backend.gather(indices, nms_indices)
+            _indices = tf.keras.backend.gather(_indices, nms_indices)
 
         # Add indices to list of all indices.
-        labels = tf.gather_nd(labels, indices)
-        indices = tf.keras.backend.stack([indices[:, 0], labels], axis=1)
+        _labels = tf.gather_nd(_labels, _indices)
+        _indices = tf.keras.backend.stack([_indices[:, 0], _labels], axis=1)
 
-        return indices
+        return _indices
 
     if class_specific_filter:
         all_indices = []
@@ -133,12 +139,13 @@ class FilterDetections(tf.keras.layers.Layer):
     ):
         """ Filters detections using score threshold, NMS and selecting the top-k detections.
         Args
-            nms                   : Flag to enable/disable NMS.
-            class_specific_filter : Whether to perform filtering per class, or take the best scoring class and filter those.
-            nms_threshold         : Threshold for the IoU value to determine when a box should be suppressed.
-            score_threshold       : Threshold used to prefilter the boxes with.
-            max_detections        : Maximum number of detections to keep.
-            parallel_iterations   : Number of batch items to process in parallel.
+            nms (bool, optional): Flag to enable/disable NMS.
+            class_specific_filter (bool, optional): Whether to perform filtering per class,
+                or take the best scoring class and filter those.
+            nms_threshold (float, optional): Threshold for the IoU value to determine when a box should be suppressed.
+            score_threshold (float, optional): Threshold used to pre-filter the boxes with.
+            max_detections (int, optional): Maximum number of detections to keep.
+            parallel_iterations (int, optional): Number of batch items to process in parallel.
         """
         self.nms = nms
         self.class_specific_filter = class_specific_filter
@@ -160,16 +167,16 @@ class FilterDetections(tf.keras.layers.Layer):
 
         # Wrap nms with our parameters.
         def _filter_detections(args):
-            boxes = args[0]
-            classification = args[1]
-            relationship = args[2]
-            other = args[3:]
+            _boxes = args[0]
+            _classification = args[1]
+            _relationship = args[2]
+            _other = args[3:]
 
             return filter_detections(
-                boxes,
-                classification,
-                relationship,
-                other,
+                _boxes,
+                _classification,
+                _relationship,
+                _other,
                 nms=self.nms,
                 class_specific_filter=self.class_specific_filter,
                 score_threshold=self.score_threshold,
@@ -193,7 +200,14 @@ class FilterDetections(tf.keras.layers.Layer):
             input_shape : List of input shapes [boxes, classification, other[0], other[1], ...].
         Returns
             List of tuples representing the output shapes:
-            [filtered_boxes.shape, filtered_scores.shape, filtered_labels.shape, filtered_other[0].shape, filtered_other[1].shape, ...]
+                [
+                    filtered_boxes.shape,
+                    filtered_scores.shape,
+                    filtered_labels.shape,
+                    filtered_other[0].shape,
+                    filtered_other[1].shape,
+                    ...
+                ]
         """
         return [
                    (input_shape[0][0], self.max_detections, 4),
