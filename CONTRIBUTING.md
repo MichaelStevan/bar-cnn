@@ -4,7 +4,6 @@ Thanks for thinking about contributing to our library !
 
 ## Before you start
 
-* Please accept the [Contributor License Agreement](https://cla.developers.google.com) (see below)
 * Comment on the issue that you plan to work on so we can assign it to you and
   there isn't unnecessary duplication of work. 
 * When you plan to work on something larger, please respond on the issue (or create one if there
@@ -24,7 +23,7 @@ Methods and classes should have clear and complete docstrings.
 Most methods (and all publicly-facing API methods) should have an `Args:`
 section that documents the name, type, and description of each argument.
 Argument lines should be formatted as
-`` arg_name: (`arg_type`) Description of arg. ``
+`` arg_name (`arg_type`): Description of arg. ``
 
 ## Tests
 
@@ -37,18 +36,6 @@ require:
 ## Pull Requests
 
 All contributions are done through Pull Requests here on GitHub.
-
-## Contributor License Agreement
-
-Contributions to this project must be accompanied by a Contributor License
-Agreement. You (or your employer) retain the copyright to your contribution,
-this simply gives us permission to use and redistribute your contributions as
-part of the project. Head over to <https://cla.developers.google.com/> to see
-your current agreements on file or to sign a new one.
-
-You generally only need to submit a CLA once, so if you've already submitted one
-(even if it was for a different project), you probably don't need to do it
-again.
 
 ## Code reviews
 
